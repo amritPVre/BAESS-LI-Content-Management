@@ -15,8 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ai_client import get_api_key, call_ai
 from company_research import parse_pasted_rows, research_company_row
 from baess_context import (
-    BAESS_PLATFORM_CONTEXT,
+    FOUR_LINE_OUTREACH_STRUCTURE,
     EMAIL_TEMPLATES,
+    load_outreach_knowledge,
     segment_hint,
     optional_instructions_block,
     topics_focus_block,
@@ -26,7 +27,7 @@ from content_history import avoid_repetition_block
 st.title("📧 Cold Email Generator")
 st.caption(
     "Paste up to 10 prospects at a time — the app researches each company on the web "
-    "and writes personalised cold emails."
+    "and writes personalised 4-line cold emails (them → value → question → CTA)."
 )
 
 MAX_BATCH = 10
@@ -47,34 +48,36 @@ if "email_research_cache" not in st.session_state:
     st.session_state.email_research_cache = {}
 
 # ── System prompts ────────────────────────────────────────────────────────────
+_OUTREACH_DOCS = load_outreach_knowledge()
+
 EMAIL_SYSTEM = f"""You are a B2B cold email specialist for BAESS Labs (https://baess.app).
 You write cold emails that get replies. Use accurate product names and honest positioning.
 
-{BAESS_PLATFORM_CONTEXT}
+{FOUR_LINE_OUTREACH_STRUCTURE}
+
+PRODUCT & PLATFORM KNOWLEDGE (use for line 2 — pick 1–2 problems max):
+{_OUTREACH_DOCS}
 
 Rules:
-- Subject line: under 8 words, no spam triggers, no ALL CAPS.
-- Opening: do NOT start with 'I hope this email finds you well' or 'My name is'.
-  Open with something specific from the company research — their projects, market, or pain point.
-- Body: 3 short paragraphs max. Plain text — no bullet points.
-  Para 1: why them, why now (use research hooks). Para 2: most relevant BAESS product + concrete benefit.
-  Para 3: single CTA aligned to sidebar offer/CTA.
-- Reference real products where relevant: PV AI Designer Pro, PV 3D Designer, BESS Designer,
-  AI BOQ Generator, Solar Simulator, or free tools at baess.app/tools.
-- Do NOT overclaim vs PVsyst/Helioscope — position as faster web workflow and AI-assisted BOQ/reports.
-- If an anti-repetition block is provided, MUST use fresh subject lines, hooks, and angles — never reuse prior content.
-- If contact name is unknown, use a role-appropriate greeting (e.g. "Hi team" or "Hi there").
-- Signature: name, title, email.
+- Subject line: under 8 words, no spam triggers, no ALL CAPS — specific to their situation.
+- Greeting: use contact name from research, or role-appropriate fallback (e.g. "Hi team").
+- Body: exactly the 4 content sentences defined above (them → value → question → CTA).
+  No bullet points. Plain text only.
+- Do NOT start with 'I hope this email finds you well' or 'My name is'.
+- Do NOT overclaim vs PVsyst/Helioscope — position as faster web workflow and AI automation.
+- If an anti-repetition block is provided, MUST use fresh subject lines, hooks, and angles.
+- Signature: sender name, title, email on separate lines after the 4 sentences.
 - Tone: direct, peer-to-peer, zero corporate fluff.
 - Output format exactly:
   SUBJECT: [subject line]
   ---
-  [email body including signature]"""
+  [email body including greeting, 4 sentences, and signature]"""
 
 REPLY_SYSTEM = f"""You are writing follow-up emails for BAESS Labs cold outreach.
 Keep each follow-up shorter than the previous one. Use company research and BAESS product fit.
 
-{BAESS_PLATFORM_CONTEXT}
+PRODUCT & PLATFORM KNOWLEDGE:
+{_OUTREACH_DOCS}
 
 Output format exactly:
 SUBJECT: [subject line]
@@ -120,10 +123,11 @@ def build_email_prompt(
     return f"""{_research_block(research)}
 
 Write a cold email using the research above.
-- Offer: {offer}
-- CTA: {cta_type}
+Use the mandatory 4-line structure (them → our value → easy question → CTA hook).
+- Offer (weave into line 4): {offer}
+- CTA (line 4): {cta_type}
 - Sender: {sender_name}, {sender_title}, {sender_email}
-- Free tools entry: baess.app/tools (no signup for calculators)
+- Free tools entry: baess.app/tools (30+ free engineering calculators)
 {topics_focus_block()}
 Make it feel like {sender_name} personally researched this company before writing.{history_avoid}{optional_instructions_block(custom_instructions)}"""
 

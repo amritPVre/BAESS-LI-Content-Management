@@ -14,7 +14,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ai_client import get_api_key, call_ai
-from baess_context import BAESS_PLATFORM_CONTEXT, DM_TEMPLATES, optional_instructions_block, topics_focus_block
+from baess_context import (
+    FOUR_LINE_OUTREACH_STRUCTURE,
+    DM_TEMPLATES,
+    load_outreach_knowledge,
+    optional_instructions_block,
+    topics_focus_block,
+)
 from content_history import avoid_repetition_block
 from linkedin_research import (
     validate_linkedin_url,
@@ -25,7 +31,7 @@ from linkedin_research import (
 st.title("💼 LinkedIn DM Generator")
 st.caption(
     "Paste a LinkedIn profile URL — the app fetches public data, researches the person "
-    "and their company, then writes personalised DMs."
+    "and their company, then writes personalised 4-line DMs (them → value → question → CTA)."
 )
 
 # ── Guard ─────────────────────────────────────────────────────────────────────
@@ -40,18 +46,20 @@ sender_role  = st.session_state.get("sender_title", "Founder, BAESS Labs")
 
 MAX_BATCH = 10
 
-# Distinct opener/structure patterns — rotated across batch so DMs don't look templated
+# Distinct CTA/question angles — rotated in bulk so messages don't look templated
 DM_VARIATION_STYLES = [
-    "Open with a genuine question about their work. Avoid 'Hi [Name], hope you're well'.",
-    "Open with a specific observation about their company — statement first, question later.",
-    "Start with a peer pain point in their segment, then ask if it resonates. No product name in sentence 1.",
-    "Open with something specific from the research hook — casual, as if you already know their space.",
-    "Use a short compliment tied to one research detail, then pivot to curiosity. Max 3 sentences total.",
-    "Start mid-thought — no formal greeting. Example rhythm: observation → why you're reaching out → soft ask.",
-    "Lead with their country/market context, then connect to one BAESS topic. Vary sentence lengths.",
-    "Terse format: one context sentence, one value sentence, one CTA. Under 60 words.",
-    "Open with 'Quick question —' or similar, but do NOT copy that phrase verbatim — invent your own casual hook.",
-    "Story-style opener: 'Was looking at [company]'s work on X…' — conversational, founder voice.",
+    "Line 3 question: ask if the pain in line 1 resonates — yes/no friendly tone.",
+    "Line 3 question: 'Worth a quick look?' style — invent your own wording, not that exact phrase.",
+    "Line 3 question: ask whether their team still does the manual work described in line 1.",
+    "Line 4 CTA: lead with baess.app/tools free calculators before mentioning demo.",
+    "Line 4 CTA: lead with www.baess.app AI automation, then free tools link.",
+    "Line 4 CTA: emphasize quick demo this week; mention one specific product from line 2.",
+    "Line 1 opener: lead with hiring or team growth signal from research.",
+    "Line 1 opener: lead with project scale or pipeline detail from research.",
+    "Line 2 value: emphasize PV AI Designer Pro — BOQ, layout/SLD, feasibility report.",
+    "Line 2 value: emphasize BESS Designer — sizing, TOU, BOQ, hybrid paths.",
+    "Line 2 value: pair one flagship product with free tools at baess.app/tools.",
+    "Terse variant: keep all 4 lines short; total under 70 words.",
 ]
 
 if "linkedin_research_cache" not in st.session_state:
@@ -73,20 +81,23 @@ def parse_pasted_urls(text: str, max_urls: int = MAX_BATCH) -> tuple[list[str], 
 
 
 # ── System prompts ────────────────────────────────────────────────────────────
+_OUTREACH_DOCS = load_outreach_knowledge()
+
 DM_SYSTEM = f"""You are a B2B outreach specialist writing LinkedIn DMs for BAESS Labs.
 The DMs are sent by the founder. Use accurate product names and honest positioning.
 
-{BAESS_PLATFORM_CONTEXT}
+{FOUR_LINE_OUTREACH_STRUCTURE}
+
+PRODUCT & PLATFORM KNOWLEDGE (use for line 2 — pick 1–2 problems max):
+{_OUTREACH_DOCS}
 
 Rules:
+- Follow the 4-line structure exactly for first DMs (lines 1–4 as defined above).
 - Sound like a real person, not a sales bot. Conversational, warm, direct.
-- Max 4 sentences for the first DM. No bullet points. No jargon overload.
-- Reference something specific from the research (person role OR company detail).
-- Mention the most relevant BAESS product naturally (free tools, PV AI Designer Pro, BESS Designer, etc.).
-- Do NOT overclaim vs PVsyst/Helioscope — position as faster web workflow and AI BOQ, not bankable yield replacement.
-- End with a single soft call to action — not a hard pitch.
+- Reference something specific from the research in line 1.
+- Do NOT overclaim vs PVsyst/Helioscope — position as faster web workflow and AI automation, not bankable yield replacement.
 - NEVER use: 'revolutionize', 'game-changer', 'excited to share', 'hope this finds you well'.
-- If an anti-repetition block is provided, MUST use fresh angles — never reuse prior hooks, openers, or CTAs.
+- If an anti-repetition block is provided, MUST use fresh angles — never reuse prior hooks or CTAs.
 - Output ONLY the DM text. No subject line, no preamble, no commentary."""
 
 FOLLOWUP_SYSTEM = f"""You are writing a LinkedIn follow-up DM for BAESS Labs.
@@ -94,7 +105,8 @@ Tone: genuine curiosity, not pushy. Shorter than the previous message.
 Goal: book a 20-minute demo call or nudge toward baess.app/tools free calculators.
 Use the research brief and BAESS product fit to stay specific.
 
-{BAESS_PLATFORM_CONTEXT}
+PRODUCT & PLATFORM KNOWLEDGE:
+{_OUTREACH_DOCS}
 
 Output ONLY the DM text. No labels, no commentary."""
 
@@ -145,9 +157,10 @@ def build_dm_prompt(
     return f"""{_research_block(research)}
 
 Write a personalised first LinkedIn DM using the research above.
-- Offer to mention naturally: {offer_type}
+Use the mandatory 4-line structure (them → our value → easy question → CTA hook).
+- Offer to mention naturally in line 4: {offer_type}
 - Sender: {sender_name}, {sender_role}
-- Free tools entry point: baess.app/tools (no signup for calculators)
+- Free tools entry point: baess.app/tools (30+ free engineering calculators)
 {topics_focus_block()}
 Must feel written specifically for this person, not a template.{history_avoid}{anti_spam}{optional_instructions_block(custom_instructions)}"""
 
@@ -327,8 +340,8 @@ with tab2:
 with tab3:
     st.subheader(f"Paste up to {MAX_BATCH} LinkedIn profile URLs")
     st.markdown(
-        "One URL per line. The app researches each profile live and writes **unique** DMs — "
-        "varied structure and wording so LinkedIn does not flag them as spam."
+        "One URL per line. Each DM uses the 4-line format: their situation → BAESS value → "
+        "easy question → CTA. Wording varies per prospect so LinkedIn does not flag spam."
     )
 
     with st.expander("📌 Format & example"):

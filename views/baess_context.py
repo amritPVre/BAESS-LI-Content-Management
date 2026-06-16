@@ -1,4 +1,69 @@
-"""BAESS Labs platform knowledge for outreach prompts — sourced from BAESS_PLATFORM_DOCUMENTATION.md."""
+"""BAESS Labs platform knowledge for outreach prompts — loads root markdown docs."""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parent.parent
+
+
+@lru_cache(maxsize=1)
+def load_outreach_knowledge() -> str:
+    """Full BAESS platform + BESS Designer docs for DM/email generation context."""
+    platform_path = _ROOT / "BAESS_PLATFORM_DOCUMENTATION.md"
+    bess_path = _ROOT / "BESS_Designer_App_Description.md"
+    parts = []
+    if platform_path.is_file():
+        parts.append(
+            "=== BAESS PLATFORM DOCUMENTATION ===\n"
+            + platform_path.read_text(encoding="utf-8")
+        )
+    if bess_path.is_file():
+        parts.append(
+            "=== BESS DESIGNER APP DOCUMENTATION ===\n"
+            + bess_path.read_text(encoding="utf-8")
+        )
+    if not parts:
+        return BAESS_PLATFORM_CONTEXT
+    return "\n\n".join(parts)
+
+
+FOUR_LINE_OUTREACH_STRUCTURE = """
+REQUIRED MESSAGE STRUCTURE (first LinkedIn DM and first cold email — exactly 4 content sentences):
+
+Line 1 — THEM: One sentence about the prospect or their company — their situation, hiring, projects,
+pipeline, market, or role-specific context from research. Be specific; use research hooks.
+
+Line 2 — US: One sentence on BAESS product value — how we solve 1–2 (max) core problems that match
+their situation. Name concrete capabilities from the documentation (e.g. AI BOQ & project pricing,
+layout and SLD generation, feasibility reports, sales proposals, BESS sizing, TOU optimization).
+Honest positioning only — no hype.
+
+Line 3 — QUESTION: One short, easy-to-answer question to invite a reply
+(e.g. "Worth a quick look?" / "Is that a bottleneck for your team?" / "Relevant for your pipeline?").
+
+Line 4 — CTA: One hook line with a clear next step — www.baess.app, baess.app/tools (30+ free tools),
+and/or offer a quick demo this week. Align with sidebar offer/CTA when provided.
+
+Example rhythm (adapt names and facts from research — do NOT copy verbatim):
+---
+Hi John,
+Saw you are hiring 3 new design engineers in your team for your 200MW+ PV projects pipeline.
+We help companies like yours cut design engineering process time by ~75% by automating high-accuracy
+detailed BOQ & project pricing, layout and SLD generation, and state-of-the-art feasibility reports
+& sales proposal generation with AI.
+Worth a quick look?
+Check out our AI automation at www.baess.app and explore 30+ free engineering tools at
+www.baess.app/tools — we are available to deliver a quick demo this week!
+---
+
+LinkedIn DM: same 4 content sentences; optional "Hi {first name}," prefix. No subject line.
+Keep concise (~60–90 words). No bullet points.
+
+Cold email: subject line (≤8 words, specific, no spam triggers), greeting, the 4 sentences,
+then sign-off with sender name, title, and email from the prompt.
+"""
 
 BAESS_PLATFORM_CONTEXT = """
 BAESS Labs (https://baess.app) is a browser-based solar engineering and business platform.
