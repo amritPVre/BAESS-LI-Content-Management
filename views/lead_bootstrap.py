@@ -42,7 +42,10 @@ def ensure_lead_engine_db() -> None:
     except Exception as exc:
         reset_engine_cache()
         st.error(f"Lead engine database error: {exc}")
-        st.info("Set `DATABASE_URL` in `.streamlit/secrets.toml` (Neon pooled URI).")
+        st.info(
+            "Set `DATABASE_URL` in `.streamlit/secrets.toml` to the same Neon URI as the "
+            "standalone Lead Engine (`baess-lead-engine` project) so both apps share one database."
+        )
         st.stop()
 
 

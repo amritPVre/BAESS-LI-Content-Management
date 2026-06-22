@@ -9,14 +9,23 @@ from pathlib import Path
 from typing import Optional
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-_ENV_FILE = _PROJECT_ROOT / ".env"
+_APP_ROOT = _PROJECT_ROOT.parent
+_ENV_FILES = (_PROJECT_ROOT / ".env", _APP_ROOT / ".env")
+_SECRETS_FILES = (
+    _APP_ROOT / ".streamlit" / "secrets.toml",
+    _PROJECT_ROOT / ".streamlit" / "secrets.toml",
+    Path.home() / ".streamlit" / "secrets.toml",
+)
+
 
 def _reload_env_file() -> None:
-    """Reload .env on every settings read (picks up edits without full restart)."""
+    """Reload .env from lead_engine or app root (picks up edits without full restart)."""
     try:
         from dotenv import load_dotenv
 
-        load_dotenv(_ENV_FILE, override=True)
+        for env_file in _ENV_FILES:
+            if env_file.is_file():
+                load_dotenv(env_file, override=True)
     except ImportError:
         pass
 
@@ -26,21 +35,35 @@ _reload_env_file()
 
 @lru_cache
 def _streamlit_secrets_available() -> bool:
-    """True only when a secrets.toml file exists (avoids Streamlit warnings)."""
-    candidates = [
-        _PROJECT_ROOT / ".streamlit" / "secrets.toml",
-        Path.home() / ".streamlit" / "secrets.toml",
-    ]
-    return any(path.is_file() for path in candidates)
+    """True when a secrets.toml file exists (app root or lead_engine)."""
+    return any(path.is_file() for path in _SECRETS_FILES)
+
+
+@lru_cache
+def _load_secrets_toml() -> dict:
+    """Read secrets.toml from disk (works outside Streamlit runtime)."""
+    for path in _SECRETS_FILES:
+        if not path.is_file():
+            continue
+        try:
+            try:
+                import tomllib
+
+                return tomllib.loads(path.read_bytes())
+            except ImportError:
+                import tomli
+
+                return tomli.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+    return {}
 
 
 def _get_config_value(key: str, default: str = "") -> str:
-    """Read from .env / environment variables, then Streamlit Cloud secrets."""
+    """Read from env, Streamlit secrets, then secrets.toml on disk."""
     value = os.getenv(key, "").strip()
     if value:
         return value
-    if not _streamlit_secrets_available():
-        return default
     try:
         import streamlit as st
 
@@ -48,6 +71,9 @@ def _get_config_value(key: str, default: str = "") -> str:
             return str(st.secrets[key]).strip()
     except Exception:
         pass
+    file_secrets = _load_secrets_toml()
+    if key in file_secrets:
+        return str(file_secrets[key]).strip()
     return default
 
 
@@ -194,4 +220,5 @@ class Settings:
 def get_settings() -> Settings:
     """Load settings from environment (not cached — safe for Streamlit hot-reload)."""
     _reload_env_file()
+    _load_secrets_toml.cache_clear()
     return Settings.from_env()
