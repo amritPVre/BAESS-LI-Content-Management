@@ -24,3 +24,29 @@ CREATE TABLE IF NOT EXISTS content_prompts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_content_prompts_week ON content_prompts (week_start);
+
+-- Outreach email campaigns (requires lead_engine companies + company_contacts tables)
+CREATE TABLE IF NOT EXISTS outreach_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id INTEGER NOT NULL REFERENCES companies(id),
+    contact_id INTEGER NOT NULL REFERENCES company_contacts(id),
+    sequence_num INTEGER NOT NULL DEFAULT 1,
+    parent_message_id UUID REFERENCES outreach_messages(id),
+    subject TEXT,
+    body_text TEXT NOT NULL,
+    body_html TEXT,
+    status VARCHAR(32) NOT NULL DEFAULT 'draft',
+    zepto_email_reference TEXT,
+    zepto_client_reference TEXT,
+    sent_at TIMESTAMPTZ,
+    opened_at TIMESTAMPTZ,
+    bounced_at TIMESTAMPTZ,
+    replied_at TIMESTAMPTZ,
+    follow_up_due_at TIMESTAMPTZ,
+    error_message TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (contact_id, sequence_num)
+);
+
+CREATE INDEX IF NOT EXISTS idx_outreach_status ON outreach_messages(status);

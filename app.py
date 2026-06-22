@@ -10,9 +10,13 @@ from pathlib import Path
 
 import streamlit as st
 
-sys.path.insert(0, str(Path(__file__).parent / "views"))
+ROOT = Path(__file__).parent
+sys.path.insert(0, str(ROOT / "views"))
+sys.path.insert(0, str(ROOT / "lead_engine"))
+
 from auth_gate import render_logout_sidebar, require_auth
 from baess_context import OUTREACH_TOPIC_GROUPS, get_outreach_topics
+from lead_bootstrap import ensure_lead_engine_db, sync_lead_database
 
 st.set_page_config(
     page_title="BAESS Outreach Suite",
@@ -120,6 +124,25 @@ with st.sidebar:
         st.caption("Selected: " + " · ".join(selected))
 
     st.markdown("---")
+    st.subheader("🔍 Lead Engine")
+    st.selectbox(
+        "AI provider (research)",
+        ["deepseek", "openai"],
+        key="lead_ai_provider",
+        help="Used for ENF company research phase",
+    )
+    if st.button("Sync Lead Database", use_container_width=True):
+        ok, msg = sync_lead_database()
+        if ok:
+            st.success(msg)
+        else:
+            st.error(msg)
+    try:
+        ensure_lead_engine_db()
+    except Exception:
+        pass
+
+    st.markdown("---")
     st.subheader("📊 Session Stats")
     if "dm_count"    not in st.session_state: st.session_state.dm_count    = 0
     if "email_count" not in st.session_state: st.session_state.email_count = 0
@@ -130,10 +153,21 @@ with st.sidebar:
     c3.metric("Content weeks", st.session_state.content_weeks)
 
 # ── Define pages and run navigation ──────────────────────────────────────────
-pg = st.navigation([
-    st.Page("views/home.py",                          title="🏠 Home",                         ),
-    st.Page("views/1_LinkedIn_DM_Generator.py",       title="💼 LinkedIn DM Generator",        ),
-    st.Page("views/2_Cold_Email_Generator.py",        title="📧 Cold Email Generator",         ),
-    st.Page("views/3_LinkedIn_Content_Calendar.py",   title="📅 LinkedIn Content Calendar",    ),
-])
+pg = st.navigation({
+    "Home": [
+        st.Page("views/home.py", title="🏠 Home"),
+    ],
+    "Lead Engine": [
+        st.Page("views/lead_discovery.py", title="🔍 Discovery"),
+        st.Page("views/lead_enrichment.py", title="✨ Profile Enrichment"),
+        st.Page("views/lead_research.py", title="🔬 Company Research"),
+        st.Page("views/lead_companies.py", title="🏢 Companies"),
+    ],
+    "Outreach": [
+        st.Page("views/5_Email_Campaigns.py", title="📬 Email Campaigns"),
+        st.Page("views/1_LinkedIn_DM_Generator.py", title="💼 LinkedIn DM Generator"),
+        st.Page("views/2_Cold_Email_Generator.py", title="📧 Cold Email (manual)"),
+        st.Page("views/3_LinkedIn_Content_Calendar.py", title="📅 Content Calendar"),
+    ],
+})
 pg.run()

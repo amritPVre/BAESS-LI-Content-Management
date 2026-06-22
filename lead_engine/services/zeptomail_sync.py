@@ -1,0 +1,85 @@
+"""Poll ZeptoMail email logs for bounces and delivery failures."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import requests
+
+from config.settings import get_settings
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+@dataclass
+class DeliverySyncResult:
+    checked: int = 0
+    bounced: int = 0
+    errors: list[str] | None = None
+
+
+def _auth_headers() -> dict[str, str]:
+    token = (get_settings().zeptomail_send_token or "").strip()
+    return {
+        "Accept": "application/json",
+        "Authorization": f"Zoho-enczapikey {token}",
+    }
+
+
+def fetch_email_log_by_reference(email_reference: str) -> dict | None:
+    if not email_reference:
+        return None
+    url = f"https://api.zeptomail.com/v1.1/email/email-reference/{email_reference}"
+    try:
+        resp = requests.get(url, headers=_auth_headers(), timeout=30)
+        if resp.status_code >= 400:
+            return None
+        return resp.json()
+    except requests.RequestException:
+        logger.exception("ZeptoMail log fetch failed for %s", email_reference)
+        return None
+
+
+def is_bounce_payload(payload: dict) -> bool:
+    """Detect hard/soft bounce from ZeptoMail log response."""
+    text = str(payload).lower()
+    if "hardbounce" in text or "hard_bounce" in text:
+        return True
+    if payload.get("is_hb") or payload.get("is_mailfailure"):
+        return True
+    event_data = payload.get("event_data") or []
+    for block in event_data if isinstance(event_data, list) else []:
+        obj = (block or {}).get("object", "")
+        if obj and "bounce" in str(obj).lower():
+            return True
+    status = str(payload.get("status") or "").lower()
+    if "bounce" in status or "fail" in status:
+        return True
+    return False
+
+
+def sync_delivery_for_messages(messages: list) -> DeliverySyncResult:
+    """Check ZeptoMail logs for sent outreach messages."""
+    from datetime import datetime, timezone
+
+    from models.outreach_message import OutreachStatus
+    from services.zeptomail_service import zeptomail_configured
+
+    if not zeptomail_configured():
+        return DeliverySyncResult(errors=["ZeptoMail not configured"])
+
+    result = DeliverySyncResult(errors=[])
+    for msg in messages:
+        ref = msg.zepto_email_reference
+        if not ref:
+            continue
+        result.checked += 1
+        payload = fetch_email_log_by_reference(ref)
+        if not payload:
+            continue
+        if payload and is_bounce_payload(payload):
+            result.bounced += 1
+            msg.status = OutreachStatus.BOUNCED
+            msg.bounced_at = datetime.now(timezone.utc)
+    return result

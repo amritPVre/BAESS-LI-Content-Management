@@ -6,7 +6,18 @@ Reads shared config from st.session_state set by app.py sidebar.
 import streamlit as st
 
 st.title("🏠 BAESS Outreach Suite")
-st.caption("AI-powered outreach and LinkedIn content for BAESS Labs.")
+st.caption("Lead discovery, AI outreach, and LinkedIn content for BAESS Labs.")
+
+st.markdown("---")
+st.subheader("Pipeline")
+st.markdown(
+    """
+1. **Lead Engine** — Discover installers on ENF → enrich profiles → research websites for emails & contacts (Neon DB)
+2. **Email Campaigns** — Draft 4-line emails from DB contacts → send via ZeptoMail → sync replies → follow up
+3. **LinkedIn DM / manual cold email** — Ad-hoc outreach when not using the lead database
+4. **Content Calendar** — Weekly LinkedIn posts with creative prompts
+"""
+)
 
 st.markdown("---")
 
