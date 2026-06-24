@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import requests
 
 from config.settings import get_settings
+from services.zeptomail_service import _auth_headers, zeptomail_configured
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -19,18 +20,11 @@ class DeliverySyncResult:
     errors: list[str] | None = None
 
 
-def _auth_headers() -> dict[str, str]:
-    token = (get_settings().zeptomail_send_token or "").strip()
-    return {
-        "Accept": "application/json",
-        "Authorization": f"Zoho-enczapikey {token}",
-    }
-
-
 def fetch_email_log_by_reference(email_reference: str) -> dict | None:
     if not email_reference:
         return None
-    url = f"https://api.zeptomail.com/v1.1/email/email-reference/{email_reference}"
+    base = get_settings().zeptomail_api_base.rstrip("/")
+    url = f"{base}/v1.1/email/email-reference/{email_reference}"
     try:
         resp = requests.get(url, headers=_auth_headers(), timeout=30)
         if resp.status_code >= 400:
@@ -64,7 +58,6 @@ def sync_delivery_for_messages(messages: list) -> DeliverySyncResult:
     from datetime import datetime, timezone
 
     from models.outreach_message import OutreachStatus
-    from services.zeptomail_service import zeptomail_configured
 
     if not zeptomail_configured():
         return DeliverySyncResult(errors=["ZeptoMail not configured"])

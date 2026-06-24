@@ -194,6 +194,7 @@ with tab_test:
         st.info(
             f"**From:** `{settings.zeptomail_from_address}` ({settings.zeptomail_from_name})  \n"
             f"**Reply-To:** `{settings.zeptomail_reply_to or settings.zeptomail_from_address}`  \n"
+            f"**ZeptoMail API:** `{settings.zeptomail_api_base}`  \n"
             f"**Where replies land:** Zoho Mail inbox for the Reply-To address (synced in **Sync status** tab)."
         )
         test_email = st.text_input(

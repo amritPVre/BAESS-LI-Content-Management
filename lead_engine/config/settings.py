@@ -77,6 +77,19 @@ def _get_config_value(key: str, default: str = "") -> str:
     return default
 
 
+def _resolve_zeptomail_api_base() -> str:
+    """Pick ZeptoMail API host — India/EU accounts must not use api.zeptomail.com."""
+    explicit = _get_config_value("ZEPTOMAIL_API_BASE").rstrip("/")
+    if explicit:
+        return explicit
+    accounts = _get_config_value("ZOHO_ACCOUNTS_BASE", "").lower()
+    if "zoho.in" in accounts:
+        return "https://api.zeptomail.in"
+    if "zoho.eu" in accounts:
+        return "https://api.zeptomail.eu"
+    return "https://api.zeptomail.com"
+
+
 @dataclass(frozen=True)
 class Settings:
     """Central configuration for BAESS Lead Engine."""
@@ -119,6 +132,7 @@ class Settings:
     zeptomail_from_address: Optional[str] = None
     zeptomail_from_name: str = "BAESS Labs"
     zeptomail_reply_to: Optional[str] = None
+    zeptomail_api_base: str = "https://api.zeptomail.com"
     daily_send_limit: int = 100
     follow_up_days: int = 7
     max_follow_up_sequence: int = 3
@@ -199,6 +213,7 @@ class Settings:
                 "ZEPTOMAIL_FROM_NAME", "BAESS Labs"
             ),
             zeptomail_reply_to=_get_config_value("ZEPTOMAIL_REPLY_TO") or None,
+            zeptomail_api_base=_resolve_zeptomail_api_base(),
             daily_send_limit=int(_get_config_value("DAILY_SEND_LIMIT", "100")),
             follow_up_days=int(_get_config_value("FOLLOW_UP_DAYS", "7")),
             max_follow_up_sequence=int(

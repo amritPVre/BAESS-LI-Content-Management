@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -12,8 +13,6 @@ from utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-ZEPTO_SEND_URL = "https://api.zeptomail.com/v1.1/email"
-
 
 @dataclass
 class SendResult:
@@ -23,12 +22,53 @@ class SendResult:
     error: str = ""
 
 
+def _normalize_token(raw: str | None) -> str:
+    token = (raw or "").strip().strip('"').strip("'")
+    token = re.sub(r"^zoho-enczapikey\s+", "", token, flags=re.IGNORECASE)
+    return token.strip()
+
+
+def _send_url() -> str:
+    return f"{get_settings().zeptomail_api_base.rstrip('/')}/v1.1/email"
+
+
+def _auth_headers() -> dict[str, str]:
+    token = _normalize_token(get_settings().zeptomail_send_token)
+    return {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": f"Zoho-enczapikey {token}",
+    }
+
+
+def _format_error(data: dict | str) -> str:
+    if isinstance(data, str):
+        return data[:500]
+    if not isinstance(data, dict):
+        return str(data)[:500]
+    message = data.get("message") or data.get("error") or "Send failed"
+    details = data.get("details") or data.get("error", {}).get("details")
+    if isinstance(details, list) and details:
+        extra = details[0].get("message") or details[0].get("code")
+        if extra:
+            message = f"{message} ({extra})"
+    code = data.get("code") or (data.get("error") or {}).get("code")
+    if code == "TM_4001" and "SERR_157" in str(data):
+        message += (
+            " — check ZEPTOMAIL_SEND_TOKEN and ZEPTOMAIL_API_BASE "
+            "(India accounts: https://api.zeptomail.in)."
+        )
+    return str(message)[:500]
+
+
 def zeptomail_configured() -> bool:
     s = get_settings()
+    token = _normalize_token(s.zeptomail_send_token)
     return bool(
-        s.zeptomail_send_token
+        token
         and s.zeptomail_from_address
-        and "PASTE_" not in (s.zeptomail_send_token or "")
+        and "PASTE_" not in token
+        and "your-zeptomail" not in token.lower()
     )
 
 
@@ -74,22 +114,15 @@ def send_outreach_email(
             {"address": settings.zeptomail_reply_to, "name": settings.zeptomail_from_name}
         ]
 
-    token = settings.zeptomail_send_token.strip()
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "Authorization": f"Zoho-enczapikey {token}",
-    }
-
     try:
         resp = requests.post(
-            ZEPTO_SEND_URL, json=payload, headers=headers, timeout=45
+            _send_url(), json=payload, headers=_auth_headers(), timeout=45
         )
         data = resp.json() if resp.content else {}
         if resp.status_code >= 400:
-            err = data.get("message") or data.get("error") or resp.text
+            err = _format_error(data if isinstance(data, dict) else resp.text)
             logger.error("ZeptoMail send failed: %s", err)
-            return SendResult(success=False, error=str(err)[:500])
+            return SendResult(success=False, error=err)
 
         email_info = (data.get("data") or [{}])[0] if isinstance(data.get("data"), list) else data
         ref = (
