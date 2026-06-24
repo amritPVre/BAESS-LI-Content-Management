@@ -22,7 +22,7 @@ from outreach_db import (
     mark_sent,
     save_draft,
 )
-from services.zeptomail_service import send_outreach_email, zeptomail_configured
+from services.zeptomail_service import send_outreach_email, send_test_email, zeptomail_configured
 from services.zeptomail_sync import sync_delivery_for_messages
 from services.zoho_mail_sync import sync_replies_for_messages, zoho_configured
 from utils.logging import setup_logging
@@ -50,8 +50,8 @@ with get_session() as session:
 
 countries = ["All"] + sorted({r["country"] for r in all_eligible if r.get("country")})
 
-tab_draft, tab_queue, tab_sync, tab_follow = st.tabs(
-    ["✨ Draft from DB", "📤 Drafts & Send", "🔄 Sync status", "🔁 Follow-ups"]
+tab_draft, tab_queue, tab_test, tab_sync, tab_follow = st.tabs(
+    ["✨ Draft from DB", "📤 Drafts & Send", "🧪 Test send", "🔄 Sync status", "🔁 Follow-ups"]
 )
 
 with tab_draft:
@@ -180,6 +180,57 @@ with tab_queue:
                                 elif m:
                                     mark_failed(session, m, result.error or "Send failed")
                                     st.error(result.error)
+
+with tab_test:
+    render_lead_header(
+        "Send test email",
+        "Verify ZeptoMail delivery, From/Reply-To headers, and inbox placement",
+    )
+    if not zeptomail_configured():
+        st.warning(
+            "Configure `ZEPTOMAIL_SEND_TOKEN` and `ZEPTOMAIL_FROM_ADDRESS` in secrets first."
+        )
+    else:
+        st.info(
+            f"**From:** `{settings.zeptomail_from_address}` ({settings.zeptomail_from_name})  \n"
+            f"**Reply-To:** `{settings.zeptomail_reply_to or settings.zeptomail_from_address}`  \n"
+            f"**Where replies land:** Zoho Mail inbox for the Reply-To address (synced in **Sync status** tab)."
+        )
+        test_email = st.text_input(
+            "Send test to",
+            value=st.session_state.get("sender_email", settings.zeptomail_reply_to or ""),
+            placeholder="you@example.com",
+            key="camp_test_email",
+        )
+        test_subject = st.text_input(
+            "Subject (optional)",
+            value="BAESS Outreach — test email",
+            key="camp_test_subject",
+        )
+        test_body = st.text_area(
+            "Body (optional)",
+            height=180,
+            placeholder="Leave blank to use the default test message showing From / Reply-To details.",
+            key="camp_test_body",
+        )
+        if st.button("Send test email", type="primary", key="camp_test_send"):
+            if not test_email or "@" not in test_email:
+                st.error("Enter a valid email address.")
+            else:
+                with st.spinner("Sending via ZeptoMail..."):
+                    result = send_test_email(
+                        to_email=test_email,
+                        subject=test_subject or None,
+                        body_text=test_body.strip() or None,
+                    )
+                if result.success:
+                    st.success(f"Test sent to **{test_email}**. Check inbox (and spam/promotions).")
+                    st.caption(
+                        f"Zepto reference: `{result.email_reference or result.request_id or '—'}` · "
+                        "Not counted toward daily campaign cap."
+                    )
+                else:
+                    st.error(result.error or "Send failed")
 
 with tab_sync:
     render_lead_header("Sync delivery & replies", "Poll ZeptoMail logs and Zoho Mail inbox")

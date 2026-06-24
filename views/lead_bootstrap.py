@@ -22,6 +22,38 @@ def render_lead_header(title: str, subtitle: str = "") -> None:
     render_header(title, subtitle)
 
 
+def render_lead_engine_sidebar() -> None:
+    """Crawl policy + proxy pool status (matches standalone Lead Engine sidebar)."""
+    st.caption(
+        "Discovery: 1 page (~5s). Enrichment: 30/batch (20–30s). "
+        "Research: 10/batch (~20 min, emails + key people)."
+    )
+    try:
+        from utils.proxy_manager import ProxyManager
+
+        proxy = ProxyManager().status()
+        if proxy["enabled"]:
+            st.markdown("**Proxies**")
+            enf_mode = "ENF+Research" if proxy["enf_proxied"] else "Research only"
+            st.caption(
+                f"{proxy['active']}/{proxy['total']} active · `{proxy['current']}` · {enf_mode}"
+            )
+            if proxy["active"] < proxy["total"]:
+                st.caption(
+                    f"{proxy.get('exhausted', 0)} proxy(s) cooling down from failures."
+                )
+            if st.button("Reset Proxy Pool", key="reset_proxy_pool", use_container_width=True):
+                ProxyManager().reset_failures()
+                st.success("Proxy pool reset")
+                st.rerun()
+        else:
+            st.caption(
+                "Proxies off — add `PROXY_ENABLED`, `PROXY_LIST` in secrets for research scraping."
+            )
+    except Exception:
+        pass
+
+
 def ensure_lead_engine_db() -> None:
     from database.connection import get_engine, reset_engine_cache
     from database.init_db import init_database

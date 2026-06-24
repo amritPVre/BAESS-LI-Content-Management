@@ -106,3 +106,32 @@ def send_outreach_email(
     except requests.RequestException as exc:
         logger.exception("ZeptoMail request error")
         return SendResult(success=False, error=str(exc))
+
+
+def send_test_email(
+    *,
+    to_email: str,
+    to_name: str = "",
+    subject: str | None = None,
+    body_text: str | None = None,
+) -> SendResult:
+    """Send a one-off test email (not saved to outreach_messages or daily cap)."""
+    from uuid import uuid4
+
+    settings = get_settings()
+    default_subject = "BAESS Outreach — test email"
+    default_body = (
+        "Hi,\n\n"
+        "This is a test send from the BAESS Outreach Suite.\n\n"
+        f"From: {settings.zeptomail_from_address}\n"
+        f"Reply-To: {settings.zeptomail_reply_to or settings.zeptomail_from_address}\n\n"
+        "If you reply, it should land in the configured Zoho Mail inbox.\n\n"
+        "— BAESS Labs"
+    )
+    return send_outreach_email(
+        to_email=to_email.strip(),
+        to_name=to_name.strip() or to_email.strip(),
+        subject=subject or default_subject,
+        body_text=body_text or default_body,
+        message_id=f"test-{uuid4()}",
+    )
