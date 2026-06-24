@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "lead_engine"))
 
 from auth_gate import render_logout_sidebar, require_auth
 from baess_context import OUTREACH_TOPIC_GROUPS, get_outreach_topics
-from lead_bootstrap import ensure_lead_engine_db, render_lead_engine_sidebar, sync_lead_database
+from lead_bootstrap import ensure_lead_engine_db, sync_lead_database
 
 st.set_page_config(
     page_title="BAESS Outreach Suite",
@@ -125,7 +125,14 @@ with st.sidebar:
 
     st.markdown("---")
     st.subheader("🔍 Lead Engine")
-    render_lead_engine_sidebar()
+    try:
+        from lead_bootstrap import render_lead_engine_sidebar
+
+        render_lead_engine_sidebar()
+    except ImportError:
+        st.caption(
+            "Discovery: 1 page (~5s). Enrichment: 30/batch. Research: 10/batch (~20 min)."
+        )
     st.selectbox(
         "AI provider (research)",
         ["deepseek", "openai"],
