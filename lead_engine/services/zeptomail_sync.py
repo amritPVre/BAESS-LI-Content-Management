@@ -76,3 +76,28 @@ def sync_delivery_for_messages(messages: list) -> DeliverySyncResult:
             msg.status = OutreachStatus.BOUNCED
             msg.bounced_at = datetime.now(timezone.utc)
     return result
+
+
+def sync_delivery_for_bulk_sends(rows: list) -> DeliverySyncResult:
+    """Check ZeptoMail logs for bulk email sends."""
+    from datetime import datetime, timezone
+
+    from models.bulk_email_send import BulkSendStatus
+
+    if not zeptomail_configured():
+        return DeliverySyncResult(errors=["ZeptoMail not configured"])
+
+    result = DeliverySyncResult(errors=[])
+    for row in rows:
+        ref = row.zepto_email_reference
+        if not ref:
+            continue
+        result.checked += 1
+        payload = fetch_email_log_by_reference(ref)
+        if not payload:
+            continue
+        if is_bounce_payload(payload):
+            result.bounced += 1
+            row.status = BulkSendStatus.BOUNCED
+            row.bounced_at = datetime.now(timezone.utc)
+    return result

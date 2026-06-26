@@ -69,8 +69,10 @@ def ensure_lead_engine_db() -> None:
             Base.metadata.create_all(bind=engine)
             run_migrations(engine)
         from outreach_db import init_outreach_schema
+        from bulk_email_db import init_bulk_email_schema
 
         init_outreach_schema(get_engine())
+        init_bulk_email_schema(get_engine())
     except Exception as exc:
         reset_engine_cache()
         st.error(f"Lead engine database error: {exc}")

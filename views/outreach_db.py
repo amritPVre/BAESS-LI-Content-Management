@@ -156,17 +156,10 @@ def get_message(session: Session, message_id: str) -> OutreachMessage | None:
 
 
 def count_sent_today(session: Session) -> int:
-    start = datetime.now(timezone.utc).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
-    return (
-        session.query(OutreachMessage)
-        .filter(
-            OutreachMessage.status == OutreachStatus.SENT,
-            OutreachMessage.sent_at >= start,
-        )
-        .count()
-    )
+    """Shared daily cap — campaign + bulk sends."""
+    from bulk_email_db import count_sent_today_all
+
+    return count_sent_today_all(session)
 
 
 def mark_sent(

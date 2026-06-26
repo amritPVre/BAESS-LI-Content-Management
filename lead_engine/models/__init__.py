@@ -14,6 +14,8 @@ from models.crawl_job import CrawlJob, CrawlJobStatus, CrawlJobType
 
 from models.outreach_message import OutreachMessage, OutreachStatus
 
+from models.bulk_email_send import BulkEmailSend, BulkSendStatus
+
 __all__ = [
     "Base",
     "AppSetting",
@@ -31,4 +33,6 @@ __all__ = [
     "CrawlJobType",
     "OutreachMessage",
     "OutreachStatus",
+    "BulkEmailSend",
+    "BulkSendStatus",
 ]

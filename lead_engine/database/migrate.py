@@ -87,6 +87,7 @@ def run_migrations(engine: Engine) -> None:
     _normalize_enum_values(engine, table_names)
     _fix_known_directory_urls(engine, table_names)
     _ensure_outreach_messages(engine, table_names)
+    _ensure_bulk_email_sends(engine, table_names)
 
 
 def _ensure_outreach_messages(engine: Engine, table_names: list[str]) -> None:
@@ -133,6 +134,48 @@ def _ensure_outreach_messages(engine: Engine, table_names: list[str]) -> None:
             )
         )
         logger.info("Created outreach_messages table")
+
+
+def _ensure_bulk_email_sends(engine: Engine, table_names: list[str]) -> None:
+    if "bulk_email_sends" in table_names:
+        return
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE bulk_email_sends (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    job_id UUID NOT NULL,
+                    job_name VARCHAR(255),
+                    recipient_email VARCHAR(320) NOT NULL,
+                    recipient_name VARCHAR(255),
+                    first_name VARCHAR(120),
+                    subject TEXT NOT NULL,
+                    body_text TEXT NOT NULL,
+                    status VARCHAR(32) NOT NULL DEFAULT 'pending',
+                    zepto_email_reference TEXT,
+                    zepto_client_reference TEXT,
+                    sent_at TIMESTAMPTZ,
+                    bounced_at TIMESTAMPTZ,
+                    replied_at TIMESTAMPTZ,
+                    error_message TEXT,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+                """
+            )
+        )
+        conn.execute(
+            text("CREATE INDEX idx_bulk_email_status ON bulk_email_sends(status)")
+        )
+        conn.execute(
+            text("CREATE INDEX idx_bulk_email_job ON bulk_email_sends(job_id)")
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX idx_bulk_email_recipient ON bulk_email_sends(recipient_email)"
+            )
+        )
+        logger.info("Created bulk_email_sends table")
 
 
 def _fix_known_directory_urls(engine: Engine, table_names: list[str]) -> None:

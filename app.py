@@ -173,6 +173,7 @@ pg = st.navigation({
     ],
     "Outreach": [
         st.Page("views/5_Email_Campaigns.py", title="📬 Email Campaigns"),
+        st.Page("views/6_Bulk_Email.py", title="📨 Bulk Email"),
         st.Page("views/1_LinkedIn_DM_Generator.py", title="💼 LinkedIn DM Generator"),
         st.Page("views/2_Cold_Email_Generator.py", title="📧 Cold Email (manual)"),
         st.Page("views/3_LinkedIn_Content_Calendar.py", title="📅 Content Calendar"),

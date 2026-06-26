@@ -121,7 +121,9 @@ with tab_queue:
         st.warning(
             "Configure `ZEPTOMAIL_SEND_TOKEN` and `ZEPTOMAIL_FROM_ADDRESS` in secrets to send."
         )
-    st.caption(f"Sent today: **{sent_today}** / **{settings.daily_send_limit}** daily cap")
+    st.caption(
+        f"Sent today (campaigns + bulk): **{sent_today}** / **{settings.daily_send_limit}** daily cap"
+    )
 
     with get_session() as session:
         drafts = list_drafts(session, limit=30)

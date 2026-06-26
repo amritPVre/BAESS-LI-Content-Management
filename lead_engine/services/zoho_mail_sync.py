@@ -115,3 +115,42 @@ def sync_replies_for_messages(sent_messages: list) -> ReplySyncResult:
             result.matched += 1
 
     return result
+
+
+def sync_replies_for_bulk_sends(sent_rows: list) -> ReplySyncResult:
+    """Match Zoho inbox senders to bulk_email_sends by recipient email."""
+    result = ReplySyncResult()
+    if not zoho_configured():
+        result.errors.append(
+            "Zoho Mail OAuth not configured — set ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, "
+            "ZOHO_REFRESH_TOKEN, ZOHO_ACCOUNT_ID in secrets."
+        )
+        return result
+
+    try:
+        token = _access_token()
+        inbox = _list_inbox_messages(token, limit=200)
+    except Exception as exc:
+        result.errors.append(str(exc)[:300])
+        return result
+
+    pending_by_recipient: dict[str, list] = {}
+    for row in sent_rows:
+        email = (getattr(row, "recipient_email", "") or "").lower()
+        if email:
+            pending_by_recipient.setdefault(email, []).append(row)
+
+    result.checked = len(inbox)
+    now = datetime.now(timezone.utc)
+    for item in inbox:
+        sender = _sender_email(item)
+        if not sender or sender not in pending_by_recipient:
+            continue
+        for row in pending_by_recipient[sender]:
+            from models.bulk_email_send import BulkSendStatus
+
+            row.status = BulkSendStatus.REPLIED
+            row.replied_at = now
+            result.matched += 1
+
+    return result

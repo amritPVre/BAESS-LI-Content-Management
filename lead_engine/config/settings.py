@@ -133,7 +133,8 @@ class Settings:
     zeptomail_from_name: str = "BAESS Labs"
     zeptomail_reply_to: Optional[str] = None
     zeptomail_api_base: str = "https://api.zeptomail.com"
-    daily_send_limit: int = 100
+    daily_send_limit: int = 500
+    bulk_send_limit_per_batch: int = 500
     follow_up_days: int = 7
     max_follow_up_sequence: int = 3
     zoho_client_id: Optional[str] = None
@@ -214,7 +215,10 @@ class Settings:
             ),
             zeptomail_reply_to=_get_config_value("ZEPTOMAIL_REPLY_TO") or None,
             zeptomail_api_base=_resolve_zeptomail_api_base(),
-            daily_send_limit=int(_get_config_value("DAILY_SEND_LIMIT", "100")),
+            daily_send_limit=int(_get_config_value("DAILY_SEND_LIMIT", "500")),
+            bulk_send_limit_per_batch=int(
+                _get_config_value("BULK_SEND_LIMIT_PER_BATCH", "500")
+            ),
             follow_up_days=int(_get_config_value("FOLLOW_UP_DAYS", "7")),
             max_follow_up_sequence=int(
                 _get_config_value("MAX_FOLLOW_UP_SEQUENCE", "3")
