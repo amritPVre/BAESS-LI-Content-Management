@@ -6,9 +6,12 @@ import time
 
 import streamlit as st
 
+from lead_bootstrap import ensure_lead_engine_db, render_lead_header
+
+ensure_lead_engine_db()
+
 from config.settings import get_settings
 from database.connection import get_session
-from lead_bootstrap import ensure_lead_engine_db, render_lead_header
 from bulk_email_db import (
     bulk_stats,
     count_sent_today_all,
@@ -19,13 +22,12 @@ from bulk_email_db import (
     mark_bulk_sent,
     recent_jobs,
 )
+from bulk_email_sync import sync_bulk_bounces, sync_bulk_replies
 from bulk_email_utils import parse_recipients_csv, preview_rows, render_template
 from services.zeptomail_service import send_outreach_email, zeptomail_configured
-from services.zeptomail_sync import sync_delivery_for_bulk_sends
-from services.zoho_mail_sync import sync_replies_for_bulk_sends, zoho_configured
+from services.zoho_mail_sync import zoho_configured
 from utils.logging import setup_logging
 
-ensure_lead_engine_db()
 setup_logging()
 
 st.title("📨 Bulk Email")
@@ -180,7 +182,7 @@ with tab_sync:
         if st.button("Sync delivery (bounces)", use_container_width=True):
             with get_session() as session:
                 pending = list_sent_pending_bulk_sync(session)
-                sync_result = sync_delivery_for_bulk_sends(pending)
+                sync_result = sync_bulk_bounces(pending)
             st.success(
                 f"Checked {sync_result.checked}; {sync_result.bounced} bounce(s) marked."
             )
@@ -193,7 +195,7 @@ with tab_sync:
             else:
                 with get_session() as session:
                     pending = list_sent_pending_bulk_sync(session)
-                    reply_result = sync_replies_for_bulk_sends(pending)
+                    reply_result = sync_bulk_replies(pending)
                 st.success(
                     f"Scanned {reply_result.checked} inbox message(s); "
                     f"{reply_result.matched} matched as replies."
